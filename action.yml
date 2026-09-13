@@ -1,0 +1,82 @@
+name: SendOps Push
+description: Push rendered templates and audience definitions to SendOps from CI.
+author: AltaCoda
+
+# This is the step that replaces committing `/sendops` and waiting for a webhook.
+# Render your templates however you already do, point this at the directory your
+# exporter writes, and the bundle goes straight to POST /v1/import. SendOps never
+# learns the repository exists.
+#
+# The recipe the README spells out in full: `dry_run: true` on pull requests so a
+# reviewer sees the plan in the check, `dry_run: false` on merge to apply it.
+
+branding:
+  icon: upload-cloud
+  color: blue
+
+inputs:
+  dir:
+    description: Bundle directory to push. Must contain sendops.json at its root.
+    required: false
+    default: ./sendops
+  api_key:
+    description: >-
+      SendOps API key. Needs the `.manage` scope of every kind the bundle
+      contains — see the README. Pass it from a secret, never inline.
+    required: true
+  api_url:
+    description: SendOps API base URL.
+    required: false
+    default: https://api.sendops.dev
+  dry_run:
+    description: >-
+      Plan only, writing nothing. The API's own default is true; this Action
+      defaults to false because a workflow that added this step meant to deploy.
+      Set it to true on pull requests.
+    required: false
+    default: "false"
+  prune:
+    description: >-
+      Archive or delete objects the organization has and the bundle omits,
+      within the sections the bundle declares. Off unless asked for.
+    required: false
+    default: "false"
+
+outputs:
+  changes:
+    description: Number of objects created, updated, archived or deleted. 0 on an unchanged tree.
+    value: ${{ steps.push.outputs.changes }}
+  applicable:
+    description: '"true" when the bundle passed validation, "false" when it did not.'
+    value: ${{ steps.push.outputs.applicable }}
+
+runs:
+  using: composite
+  steps:
+    # The script needs Node 20 for global fetch. Every GitHub-hosted runner has
+    # a newer one; a self-hosted runner might not, and a version check that says
+    # so beats `fetch is not defined` forty lines into a stack trace.
+    - name: Check Node
+      shell: bash
+      run: |
+        set -euo pipefail
+        if ! command -v node >/dev/null 2>&1; then
+          echo "::error::sendops-push needs Node 20 or newer on the runner. Add actions/setup-node before this step."
+          exit 1
+        fi
+        major="$(node -p 'process.versions.node.split(".")[0]')"
+        if [ "$major" -lt 20 ]; then
+          echo "::error::sendops-push needs Node 20 or newer; this runner has $(node --version)."
+          exit 1
+        fi
+
+    - name: Push bundle
+      id: push
+      shell: bash
+      env:
+        SENDOPS_DIR: ${{ inputs.dir }}
+        SENDOPS_API_KEY: ${{ inputs.api_key }}
+        SENDOPS_API_URL: ${{ inputs.api_url }}
+        SENDOPS_DRY_RUN: ${{ inputs.dry_run }}
+        SENDOPS_PRUNE: ${{ inputs.prune }}
+      run: node "${{ github.action_path }}/push.mjs"

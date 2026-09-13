@@ -1,0 +1,38 @@
+{
+  "name": "@sendops/push",
+  "version": "1.0.0",
+  "description": "Push rendered SendOps templates and audience definitions from CI to POST /v1/import.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "author": "AltaCoda",
+  "homepage": "https://developers.sendops.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AltaCoda/sendops-push.git"
+  },
+  "bin": {
+    "sendops-push": "push.mjs"
+  },
+  "main": "push.mjs",
+  "exports": "./push.mjs",
+  "files": [
+    "push.mjs",
+    "action.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "keywords": [
+    "sendops",
+    "email",
+    "templates",
+    "ses",
+    "ci",
+    "github-action"
+  ]
+}

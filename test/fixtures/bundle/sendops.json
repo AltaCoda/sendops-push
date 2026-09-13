@@ -1,0 +1,17 @@
+{
+  "templates": {
+    "welcome": {
+      "path": "templates/welcome.html",
+      "subject": "Welcome to Example"
+    }
+  },
+  "segments": {
+    "all-contacts": {
+      "path": "audience/all-contacts.sendql",
+      "name": "All contacts"
+    }
+  },
+  "images": {
+    "logo": "static/logo.png"
+  }
+}
