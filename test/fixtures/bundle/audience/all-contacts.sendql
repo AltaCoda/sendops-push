@@ -1,1 +1,1 @@
-status = "active"
+count(send within 30d) >= 0

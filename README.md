@@ -43,7 +43,8 @@ sendops/
 Eight kinds of object can travel in one: templates, segments, lists, topics,
 attributes, activity properties, workflows and images. You only need the ones you
 use — a templates-only bundle is a perfectly good bundle, and it will never touch
-your audience.
+your audience. Images are declared in the manifest as a list of paths,
+`"images": ["static/logo.png"]`, and referenced from templates by that path.
 
 ## Inputs
 

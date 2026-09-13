@@ -11,7 +11,5 @@
       "name": "All contacts"
     }
   },
-  "images": {
-    "logo": "static/logo.png"
-  }
+  "images": ["static/logo.png"]
 }

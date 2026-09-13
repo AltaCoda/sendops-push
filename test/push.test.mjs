@@ -149,7 +149,7 @@ test("sends the JSON import form: manifest object, text files, base64 images", a
   // Text files verbatim.
   assert.equal(typeof sent.files["templates/welcome.html"], "string");
   assert.match(sent.files["templates/welcome.html"], /welcome aboard/);
-  assert.equal(sent.files["audience/all-contacts.sendql"], 'status = "active"\n');
+  assert.equal(sent.files["audience/all-contacts.sendql"], "count(send within 30d) >= 0\n");
 
   // Images base64, round-tripping to the bytes on disk.
   const encoded = sent.images["static/logo.png"];
