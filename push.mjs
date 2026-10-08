@@ -27,8 +27,8 @@
 //      stale.
 //
 // Exit codes: 0 when the push succeeded (or the dry run is applicable), 1 for
-// everything else — an inapplicable plan, a failed SES deploy, a partial apply,
-// an HTTP error, a response that is not JSON. A pipeline reads the exit code;
+// everything else — an inapplicable plan, a plan-limit refusal, a failed SES
+// deploy, a partial apply, an HTTP error, a response that is not JSON. A pipeline reads the exit code;
 // the summary explains it.
 
 import { createHash } from "node:crypto";
@@ -335,6 +335,32 @@ export function describeProblem(status, body, text) {
   return lines.join("\n");
 }
 
+// planLimitLine is the one line a plan-cap refusal prints (SND-1593): which
+// cap, where the bundle would take it, and the page that lifts it. A synced
+// repository that does not fit the plan fails whole, and this is what the red
+// check says.
+//
+// It reads the bundle's `plan_limit` when the response carries one, and falls
+// back to the standard 402 fields (limit_type, current + would_add) otherwise,
+// so a refusal from any cap the server adds later still prints the same line.
+export function planLimitLine(body) {
+  if (!body || typeof body !== "object") return undefined;
+  const pl = body.plan_limit ?? body.plan?.plan_limit;
+  let axis, wouldBe, limit, url;
+  if (pl && typeof pl === "object") {
+    ({ axis, would_be: wouldBe, limit, upgrade_url: url } = pl);
+  } else if (body.code === "plan_limit_exceeded" || body.status === 402) {
+    axis = body.limit_type;
+    limit = body.limit;
+    wouldBe = typeof body.current === "number" ? body.current + (body.would_add ?? 1) : undefined;
+  } else {
+    return undefined;
+  }
+  url = url || body.upgrade_url;
+  const numbers = wouldBe !== undefined && limit !== undefined ? ` ${wouldBe}/${limit}` : "";
+  return `Import refused: plan limit — ${axis ?? "unknown"}${numbers}.${url ? ` Upgrade: ${url}` : ""}`;
+}
+
 // ── the summary ─────────────────────────────────────────────────────────────
 
 function escapeCell(value) {
@@ -363,7 +389,10 @@ export function summarize(result, config, stats) {
   const changes = objects.filter((o) => CHANGE_ACTIONS.has(o.action)).length;
 
   const failures = [];
-  if (plan.applicable === false) {
+  const refused = planLimitLine(plan.plan_limit ? plan : undefined);
+  if (refused) {
+    failures.push(refused);
+  } else if (plan.applicable === false) {
     failures.push("The bundle is not applicable — nothing was written. Fix the diagnostics below and push again.");
   }
   const failedDeploys = objects.filter((o) => o.deploy_state === "failed");
@@ -509,7 +538,12 @@ export async function run(argv, env, fetchImpl = fetch) {
   }
 
   if (!response.ok) {
-    const detail = describeProblem(response.status, response.body, response.text);
+    let detail = describeProblem(response.status, response.body, response.text);
+    // A plan cap refusal leads with the one line that says what to do.
+    if (response.status === 402) {
+      const line = planLimitLine(response.body);
+      if (line) detail = `${line}\n${detail}`;
+    }
     console.error(detail);
     writeGitHubFile(
       env.GITHUB_STEP_SUMMARY,

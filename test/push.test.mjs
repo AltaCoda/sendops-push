@@ -325,6 +325,84 @@ test("a 403 exits 1 and names the missing scope", async () => {
   assert.match(run.summary, /SendOps push — failed/);
 });
 
+test("a 402 plan-limit refusal exits 1 with the upgrade line", async () => {
+  // The /v1/import refusal (SND-1593): the standard plan_limit_exceeded
+  // problem plus the bundle's plan_limit.
+  reply = {
+    status: 402,
+    contentType: "application/problem+json",
+    body: {
+      type: "https://docs.sendops.dev/api/errors/plan_limit_exceeded",
+      title: "Plan limit exceeded",
+      status: 402,
+      code: "plan_limit_exceeded",
+      detail: "plan limit reached: segments (3/3 on free plan)",
+      limit_type: "segments",
+      current: 3,
+      limit: 3,
+      would_add: 4,
+      upgrade_url: "https://app.sendops.dev/acme/billing?reason=segments&upgrade=team",
+      plan_limit: {
+        axis: "segments",
+        current: 0,
+        limit: 3,
+        would_be: 4,
+        upgrade_url: "https://app.sendops.dev/acme/billing?reason=segments&upgrade=team",
+      },
+      request_id: "req_402",
+    },
+  };
+
+  const run = await runPush();
+  assert.equal(run.code, 1);
+  assert.match(
+    run.stderr,
+    /Import refused: plan limit — segments 4\/3\. Upgrade: https:\/\/app\.sendops\.dev\/acme\/billing\?reason=segments&upgrade=team/,
+  );
+  assert.match(run.stderr, /HTTP 402: Plan limit exceeded/);
+  assert.match(run.summary, /Import refused: plan limit — segments 4\/3/);
+});
+
+test("a 402 without plan_limit still prints the line from the standard fields", async () => {
+  reply = {
+    status: 402,
+    body: {
+      title: "Plan limit exceeded",
+      status: 402,
+      code: "plan_limit_exceeded",
+      limit_type: "templates",
+      current: 3,
+      limit: 3,
+      upgrade_url: "https://app.sendops.dev/billing?reason=templates",
+    },
+  };
+  const run = await runPush();
+  assert.equal(run.code, 1);
+  assert.match(run.stderr, /Import refused: plan limit — templates 4\/3\. Upgrade: https:\/\/app\.sendops\.dev\/billing\?reason=templates/);
+});
+
+test("a dry run whose plan crosses a cap exits 1 with the upgrade line", async () => {
+  reply = {
+    status: 200,
+    body: {
+      dry_run: true,
+      plan: {
+        applicable: false,
+        prune: false,
+        objects: [{ kind: "segment", key: "vip", action: "create", diagnostics: [] }],
+        totals: { create: 1 },
+        diagnostics: [],
+        plan_limit: { axis: "segments", current: 3, limit: 3, would_be: 4, upgrade_url: "https://app.sendops.dev/billing" },
+      },
+      objects: [],
+    },
+  };
+  const run = await runPush({ env: { SENDOPS_DRY_RUN: "true" } });
+  assert.equal(run.code, 1);
+  assert.match(run.stdout, /Import refused: plan limit — segments 4\/3\. Upgrade: https:\/\/app\.sendops\.dev\/billing/);
+  assert.doesNotMatch(run.stdout, /Fix the diagnostics/);
+});
+
 test("a non-JSON response exits 1", async () => {
   reply = { status: 200, contentType: "text/html", body: "<html>gateway</html>" };
   const run = await runPush();
