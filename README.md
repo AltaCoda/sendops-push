@@ -35,6 +35,7 @@ sendops/
   audience/all-contacts.sendql
   audience/lists.json
   audience/attributes.json
+  audience/activity-properties.json
   audience/topics.json
   audience/workflows/onboarding.flow
   static/logo.png
@@ -45,6 +46,10 @@ attributes, activity properties, workflows and images. You only need the ones yo
 use — a templates-only bundle is a perfectly good bundle, and it will never touch
 your audience. Images are declared in the manifest as a list of paths,
 `"images": ["static/logo.png"]`, and referenced from templates by that path.
+
+The shape of `sendops.json` and of each JSON schema file (attributes, activity
+properties, lists and topics) is in
+[The bundle format](https://developers.sendops.dev/api-reference/push-from-ci#the-bundle-format).
 
 ## Inputs
 
@@ -79,7 +84,7 @@ that names the missing one and this Action prints it.
 | workflows (`workflows`) | `api.workflows.manage` |
 | images (`images`) | `api.assets.manage` |
 
-Create the key in the dashboard under **Settings → API keys**.
+Create the key in the dashboard under **Workspace → API Keys**.
 
 ## The two-mode recipe: plan on the pull request, apply on merge
 
