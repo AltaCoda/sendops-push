@@ -312,12 +312,18 @@ export async function postBundle({ apiUrl, apiKey, dryRun, prune }, bundle, fetc
 // A 403 from this route names the missing scope in the `scope` extension, which
 // is the single most useful thing this script can print: the alternative is a
 // bare "Insufficient scope" and eight candidate scopes to guess between.
+//
+// An older server answered some failures in the dashboard's envelope instead,
+// {"error":{"code","message"}}. Read that too, or the one sentence explaining the
+// failure is dropped and all that prints is "Request failed".
 export function describeProblem(status, body, text) {
   const lines = [];
   if (body && typeof body === "object") {
-    const title = body.title || body.code || "Request failed";
+    const legacy = body.error && typeof body.error === "object" ? body.error : undefined;
+    const title = body.title || body.code || legacy?.code || "Request failed";
     lines.push(`HTTP ${status}: ${title}`);
     if (body.detail) lines.push(body.detail);
+    else if (legacy?.message) lines.push(legacy.message);
     if (body.scope) {
       lines.push(`Missing scope: ${body.scope} — add it to the API key and re-run.`);
     }

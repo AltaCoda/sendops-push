@@ -325,6 +325,22 @@ test("a 403 exits 1 and names the missing scope", async () => {
   assert.match(run.summary, /SendOps push — failed/);
 });
 
+test("an error in the dashboard envelope still prints its code and message", async () => {
+  // What every push from an org with no contact list got before the server
+  // answered in problem+json: the reason was in error.message and push printed
+  // only "HTTP 404: Request failed".
+  reply = {
+    status: 404,
+    body: { error: { code: "not_found", message: "Not found" } },
+  };
+
+  const run = await runPush();
+  assert.equal(run.code, 1);
+  assert.match(run.stderr, /HTTP 404: not_found/);
+  assert.match(run.stderr, /\nNot found/);
+  assert.doesNotMatch(run.stderr, /Request failed/);
+});
+
 test("a 402 plan-limit refusal exits 1 with the upgrade line", async () => {
   // The /v1/import refusal (SND-1593): the standard plan_limit_exceeded
   // problem plus the bundle's plan_limit.
