@@ -348,7 +348,7 @@ test("a 402 plan-limit refusal exits 1 with the upgrade line", async () => {
     status: 402,
     contentType: "application/problem+json",
     body: {
-      type: "https://docs.sendops.dev/api/errors/plan_limit_exceeded",
+      type: "https://developers.sendops.dev/api-reference/errors/plan_limit_exceeded",
       title: "Plan limit exceeded",
       status: 402,
       code: "plan_limit_exceeded",
