@@ -250,6 +250,10 @@ else — and the summary always says which:
   is written, including the objects that passed);
 - a template failed to deploy to SES;
 - the apply stopped part-way (the summary names the last kind that completed);
+- the bundle would take the workspace past a plan limit (segments or
+  templates). The import fails whole — nothing is written — and the step prints
+  `Import refused: plan limit — <axis> <would_be>/<limit>. Upgrade: <url>`. A
+  dry run reports the same line, so a pull request shows it before merge;
 - an HTTP error, including a `403` naming the scope the key is missing;
 - a response that is not JSON.
 
