@@ -227,6 +227,64 @@ test("an unchanged tree is 0 changes and exit 0", async () => {
   assert.match(run.outputs, /^changes=0$/m);
 });
 
+// ── image checks ────────────────────────────────────────────────────────────
+
+const missingLogo = {
+  code: "asset_missing",
+  severity: "warning",
+  ref: "images/logo.png",
+  message: '"images/logo.png" is not in your asset library, so recipients will see a broken image. Upload it or fix the path.',
+};
+const externalHero = {
+  code: "external_image",
+  severity: "suggestion",
+  ref: "https://cdn.elsewhere.test/hero.png",
+  message: "This image is hosted outside your asset library. You can import it so it's served from your own CDN.",
+};
+
+test("image checks show in Notes and as annotations, and never fail the step", async () => {
+  reply = {
+    status: 200,
+    body: okResult([
+      {
+        kind: "template",
+        key: "welcome",
+        action: "unchanged",
+        deploy_state: "deployed",
+        diagnostics: [],
+        image_notices: [missingLogo, externalHero],
+      },
+      { kind: "segment", key: "all-contacts", action: "unchanged", diagnostics: [] },
+    ]),
+  };
+
+  const run = await runPush({ env: { GITHUB_ACTIONS: "true" } });
+  assert.equal(run.code, 0, run.stderr);
+
+  // Shown even with 0 changes: an unchanged template keeps reporting a
+  // missing image until someone fixes it.
+  assert.match(run.summary, /\| template \| welcome \| unchanged \| deployed \| image warning: "images\/logo\.png" is not in your asset library/);
+  assert.match(run.summary, /image suggestion: This image is hosted outside your asset library\. .* \(https:\/\/cdn\.elsewhere\.test\/hero\.png\)/);
+  assert.match(run.summary, /\*\*0 changes\*\*/);
+
+  assert.match(run.stdout, /^::warning title=Image check::welcome: "images\/logo\.png" is not in your asset library/m);
+  assert.match(run.stdout, /^::notice title=Image check::welcome: This image is hosted outside .*\(https:\/\/cdn\.elsewhere\.test\/hero\.png\)$/m);
+});
+
+test("image annotations are emitted only inside GitHub Actions", async () => {
+  reply = {
+    status: 200,
+    body: okResult([
+      { kind: "template", key: "welcome", action: "create", deploy_state: "deployed", diagnostics: [], image_notices: [missingLogo] },
+    ]),
+  };
+
+  const run = await runPush();
+  assert.equal(run.code, 0, run.stderr);
+  assert.doesNotMatch(run.stdout, /^::warning/m);
+  assert.match(run.stdout, /image warning:/);
+});
+
 // ── the failure modes ───────────────────────────────────────────────────────
 
 test("applicable: false exits 1 and shows the diagnostic with line and column", async () => {

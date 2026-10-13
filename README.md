@@ -241,6 +241,24 @@ Full reference: [Push from CI](https://developers.sendops.dev/api-reference/push
 If you want the shape of the whole workflow rather than the endpoint, [Keeping a copy in git](https://help.sendops.dev/templates/keeping-a-copy-in-git)
 walks through it.
 
+## Image checks
+
+On an apply, each template's result carries the image checks SendOps ran on
+it after the bundle's images were uploaded. They show in the summary's **Notes**
+column, and inside GitHub Actions also as annotations on the run:
+
+- `::warning title=Image check::` — recipients will likely see a broken or
+  blank image: an `{{asset "…"}}` path or relative `src` your asset library does
+  not hold, or an SVG asset (Gmail and most Outlook versions do not show SVG).
+- `::notice title=Image check::` — an image hot-linked from another site.
+  Nothing is wrong with it; you can bring it into your library with
+  `POST /v1/assets/import` and use the `{{asset}}` reference it returns.
+
+They never fail the step, and they appear on unchanged templates too, so a
+missing image keeps being reported until it is fixed. Nothing is fetched to
+produce them, and your source is never rewritten. A dry run does not carry
+them; it reports the plan only.
+
 ## Exit codes
 
 `0` when the push applied, or the dry run is applicable. `1` for everything

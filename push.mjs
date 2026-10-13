@@ -380,6 +380,41 @@ function diagnosticLine(d) {
   return where ? `${where}: ${d.message}` : d.message;
 }
 
+// imageNoticeLine renders one image check for the Notes column. The message
+// already names a library path; an external image's names nothing, so its URL
+// is appended.
+function imageNoticeLine(n) {
+  const ref = n.code === "external_image" && n.ref ? ` (${n.ref})` : "";
+  return `image ${n.severity}: ${n.message}${ref}`;
+}
+
+// escapeCommandData escapes a GitHub workflow command's message, per the
+// runner's rules: without it a `%` or a newline in a message would truncate or
+// corrupt the annotation.
+function escapeCommandData(value) {
+  return String(value ?? "")
+    .replace(/%/g, "%25")
+    .replace(/\r/g, "%0D")
+    .replace(/\n/g, "%0A");
+}
+
+// imageAnnotations turns each template's image checks into GitHub workflow
+// commands: `::warning` for a `warning` (recipients will likely see a broken or
+// blank image) and `::notice` for a `suggestion` (an external image that could
+// be imported). They never fail the step — the import succeeded, and the
+// notices are advice — so they are annotations, not failures.
+export function imageAnnotations(result) {
+  const lines = [];
+  for (const o of result?.objects ?? []) {
+    for (const n of o.image_notices ?? []) {
+      const level = n.severity === "warning" ? "warning" : "notice";
+      const ref = n.code === "external_image" && n.ref ? ` (${n.ref})` : "";
+      lines.push(`::${level} title=Image check::${escapeCommandData(`${o.key}: ${n.message}${ref}`)}`);
+    }
+  }
+  return lines;
+}
+
 // summarize renders the whole outcome as Markdown, and decides the exit code.
 //
 // One function for both because the two must agree: every reason the step fails
@@ -393,6 +428,9 @@ export function summarize(result, config, stats) {
   const counts = {};
   for (const o of objects) counts[o.action] = (counts[o.action] ?? 0) + 1;
   const changes = objects.filter((o) => CHANGE_ACTIONS.has(o.action)).length;
+  // Image checks ride on unchanged templates too, so a push with nothing to
+  // write still shows the table when one of them has something to say.
+  const hasImageNotices = objects.some((o) => o.image_notices?.length);
 
   const failures = [];
   const refused = planLimitLine(plan.plan_limit ? plan : undefined);
@@ -424,7 +462,7 @@ export function summarize(result, config, stats) {
 
   if (objects.length === 0) {
     out.push("The bundle declares nothing. Nothing to do.");
-  } else if (changes === 0 && failures.length === 0) {
+  } else if (changes === 0 && failures.length === 0 && !hasImageNotices) {
     out.push("**0 changes.** Every object in the bundle matches what SendOps already has.");
   } else {
     const showDeploy = objects.some((o) => o.deploy_state);
@@ -442,6 +480,7 @@ export function summarize(result, config, stats) {
       if (o.reason) notes.push(o.reason);
       if (o.referenced_by?.length) notes.push(`referenced by ${o.referenced_by.join(", ")}`);
       if (o.error) notes.push(o.error);
+      for (const n of o.image_notices ?? []) notes.push(imageNoticeLine(n));
 
       const row = [o.kind, o.key, o.action];
       if (showDeploy) row.push(o.deploy_state ?? "");
@@ -579,6 +618,11 @@ export async function run(argv, env, fetchImpl = fetch) {
   // locally and a reviewer reading a PR check are looking at the same text.
   console.log(summary.markdown);
   writeGitHubFile(env.GITHUB_STEP_SUMMARY, summary.markdown);
+  // Annotations only inside Actions: elsewhere they are noise, and the Notes
+  // column above already carries the same text.
+  if (env.GITHUB_ACTIONS === "true") {
+    for (const line of imageAnnotations(response.body)) console.log(line);
+  }
   setOutputs(env, { changes: summary.changes, applicable: String(summary.applicable) });
 
   return summary.failures.length ? 1 : 0;
