@@ -82,7 +82,7 @@ that names the missing one and this Action prints it.
 | attributes (`attributes`) | `api.attributes.manage` |
 | activity properties (`activity-properties`) | `api.activities.manage` |
 | workflows (`workflows`) | `api.workflows.manage` |
-| images (`images`) | `api.assets.manage` |
+| images (`images`) | `api.templates.manage` — the same scope as templates, so nothing extra |
 
 Create the key in the dashboard under **Workspace → API Keys**.
 
